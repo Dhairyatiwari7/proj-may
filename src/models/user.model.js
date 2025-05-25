@@ -7,7 +7,6 @@ const userSchema=new mongoose.Schema(
             type : String,
             required : true,
             unique :true,
-            lowercase : true,
             trim : true,
             index : true
         },
@@ -15,13 +14,11 @@ const userSchema=new mongoose.Schema(
             type : String,
             required : true,
             unique :true,
-            lowercase : true,
             trim : true,
         },
         fullName : {
             type : String,
             required : true,
-            lowercase : true,
             index : true
         },
         avatar : {
