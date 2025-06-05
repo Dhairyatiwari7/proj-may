@@ -5,7 +5,7 @@ import {upload} from "../middlewares/multer.middleware.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken"
-import { Aggregate } from "mongoose";
+import mongoose, { Aggregate } from "mongoose";
 const generateAccessAndRefreshToken= async(userId)=>{
     try {
         const user=await User.findById(userId)
@@ -222,14 +222,19 @@ const updateAccountDetails=asyncHandler(async(req,res)=>{
 })
 
 const updateUserAvatar=asyncHandler(async (req,res)=>{
+
     const avatarLocalPath=req.file?.path;
+
     if(!avatarLocalPath){
         throw new ApiError(400,"Avatar is required");
     }
+
     const avatar=await uploadOnCloudinary(avatarLocalPath);
+
     if(!avatar.url){
         throw new ApiError(500,"Avatar upload failed");
     }
+
     const user=await User.findByIdAndUpdate(
         req.user?._id,
         {
@@ -240,18 +245,25 @@ const updateUserAvatar=asyncHandler(async (req,res)=>{
             new : true
         }
     ).select("-password")
+
+
     return res.status(200).json(new ApiResponse(200,user,"Avatar updated successfully."))
 
 })
 const updateCoverImage=asyncHandler(async (req,res)=>{
+
     const coverImageLocalPath=req.file?.path;
+
     if(!coverImageLocalPath){
         throw new ApiError(400,"Cover Image is required");
     }
+
     const coverImage=await uploadOnCloudinary(coverImageLocalPath);
+
     if(!coverImage.url){
         throw new ApiError(500,"Cover Image upload failed");
     }
+
     const user=await User.findByIdAndUpdate(
         req.user?._id,
         {
@@ -262,15 +274,19 @@ const updateCoverImage=asyncHandler(async (req,res)=>{
             new : true
         }
     ).select("-password")
+
     return res.status(200).json(new ApiResponse(200,user,"Cover Image updated successfully."))
 
 })
 
 const getUserChannelProfile=asyncHandler(async(req,res)=>{
+
     const {userName}=req.params
+
     if(!userName?.trim()){
         throw new ApiError(400,"User name is required")
     }
+
     const channel=await User.aggregate([
         {
             $match :{
@@ -319,13 +335,65 @@ const getUserChannelProfile=asyncHandler(async(req,res)=>{
             }
         }
     ])
+
     if(!channel?.length){
         throw new ApiError(404, "Channel not found");
     }
+
     console.log(channel);
-    return res.status(200).json(200,channel[0],"User channel fetched successfully")
+
+    return res.status(200).json(new ApiResponse(200,channel[0],"User channel fetched successfully"))
 
 })
+
+const getWatchHistory=asyncHandler(async(req,res)=>{
+
+    const user=await User.aggregate([
+        {
+            $match : {
+            _id : new mongoose.Types.ObjectId(req.user?._id)
+            }
+        },
+        {
+            $lookup : {
+                from : "videos",
+                localField : "watchHistory",
+                foreignField : "_id",
+                as : "watchHistory",
+                pipeline :[
+                    {
+                        $lookup :{
+                            from : "users",
+                            localField :"owner",
+                            foreignField : "_id",
+                            as : "owner",
+                            pipeline : [
+                                {
+                                    $project :{
+                                        username :1,
+                                        fullName :1,
+                                        avatar :1 
+                                    }
+                                }
+                            
+                            ]
+                        }
+                    },{
+                        $addFields : {
+                            owner : {
+                                $first : "$owner"
+                            }
+                        }
+                    }
+                ]
+            } 
+        }   
+    ])
+
+    return res.status(200).json(new ApiResponse(200,user[0].watchHistory,"Watch history fetched successfully"))
+
+})
+
 export {
     registerUser,
     loginUser,
@@ -336,5 +404,6 @@ export {
     updateAccountDetails,
     updateUserAvatar,
     updateCoverImage,
-    getUserChannelProfile
+    getUserChannelProfile,
+    getWatchHistory
 } 
