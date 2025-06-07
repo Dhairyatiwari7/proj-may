@@ -133,8 +133,8 @@ const loginUser=asyncHandler( async (req,res)=>{
 })
 const logoutUser=asyncHandler(async(req,res)=>{
     await User.findByIdAndUpdate(req.user._id,{
-        $set :{
-            refreshToken : undefined
+        $unset :{
+            refreshToken : 1 
         }}
         ,{
             new : true 
@@ -144,16 +144,27 @@ const logoutUser=asyncHandler(async(req,res)=>{
         httpOnly : true,
         secure :true
     }
-    res.status(200).clearCookie("accessToken",options).clearCookie("refreshToken",options).json(new ApiResponse(200,"Logout Successfully."))
+    res.status(200)
+    .clearCookie("accessToken",options)
+    .clearCookie("refreshToken",options)
+    .json(new ApiResponse(200,"Logout Successfully."))
+
 })
+
 const refreshAccessToken=asyncHandler(async(req,res)=>{
+
     const incomingRefreshToken=req.cookies.refreshToken || req.body.refreshToken
+
     if(!incomingRefreshToken){
         throw new ApiError(401,"Unauthorized request");
     }
+
     try {
+
         const decodedToken=jwt.verify(incomingRefreshToken,process.env.REFRESH_TOKEN_SECRET)
+
         const user=await User.findById(decodedToken?._id)
+
         if(!user){
             throw new ApiError(401,"Invalid Refresh Token")
         }
@@ -161,12 +172,18 @@ const refreshAccessToken=asyncHandler(async(req,res)=>{
         if(incomingRefreshToken!==user?.refreshToken){
             throw new ApiError(401, "Refresh token is expired or used.")
         }
+
         const options={
             httpOnly : true,
             secure :true
         }
+
         const {accessToken,newRefreshToken}=await generateAccessAndRefreshToken(user._id)
-        return res.status(200).cookie("accessToken",accessToken,options).cookie("refreshToken",newRefreshToken,options).json(new ApiResponse(200,{accessToken,newRefreshToken},"Token Refreshed Successfully"))
+
+        return res.status(200)
+        .cookie("accessToken",accessToken,options)
+        .cookie("refreshToken",newRefreshToken,options)
+        .json(new ApiResponse(200,{accessToken,newRefreshToken},"Token Refreshed Successfully"))
     
     } catch (error) {
 
@@ -175,7 +192,7 @@ const refreshAccessToken=asyncHandler(async(req,res)=>{
 
 })
 
-const changeCurrrentPassword=asyncHandler(async(req,res)=>{
+const changeCurrentPassword=asyncHandler(async(req,res)=>{
 
     const {currentPassword,newpassword}=req.body;
 
@@ -192,22 +209,29 @@ const changeCurrrentPassword=asyncHandler(async(req,res)=>{
 
     await user.save({validateBeforeSave : false})
 
-    return res.status(200).json(new ApiResponse(200,{},"Password changesd successfully"))
+    return res.status(200)
+    .json(new ApiResponse(200,{},"Password changesd successfully"))
 })
 
 const getCurrentUser=asyncHandler(async(req,res)=>{
-    return res.status(200).json(new ApiResponse(200, req.user,"Current User fetched Successfully"))
+
+    return res.status(200)
+    .json(new ApiResponse(200, req.user,"Current User fetched Successfully"))
+
 })
 const updateAccountDetails=asyncHandler(async(req,res)=>{
+
     const {fullName,email}=req.body;
-    if(!userName || !email){
+
+    if(!fullName || !email){
         throw new ApiError(401,"User name or email is required");
     }
+
     const user=await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set : {
-                userName,
+                fullName,
                 email
             }
         },
@@ -247,7 +271,8 @@ const updateUserAvatar=asyncHandler(async (req,res)=>{
     ).select("-password")
 
 
-    return res.status(200).json(new ApiResponse(200,user,"Avatar updated successfully."))
+    return res.status(200)
+    .json(new ApiResponse(200,user,"Avatar updated successfully."))
 
 })
 const updateCoverImage=asyncHandler(async (req,res)=>{
@@ -275,7 +300,8 @@ const updateCoverImage=asyncHandler(async (req,res)=>{
         }
     ).select("-password")
 
-    return res.status(200).json(new ApiResponse(200,user,"Cover Image updated successfully."))
+    return res.status(200)
+    .json(new ApiResponse(200,user,"Cover Image updated successfully."))
 
 })
 
@@ -287,54 +313,61 @@ const getUserChannelProfile=asyncHandler(async(req,res)=>{
         throw new ApiError(400,"User name is required")
     }
 
-    const channel=await User.aggregate([
+    const channel = await User.aggregate([
         {
-            $match :{
-                userName : userName?.toLowerCase()
-            },
-            $lookup : {
-                from : "subscriptions",
-                localField : "_id",
-                foreignField : "channel",
-                as : "subscribers"
-            },
-            $lookup : {
-                from : "subscriptions",
-                localField : "_id",
-                foreignField : "subscriber",
-                as : "subscribedTo"
-            },
-            $addFields:{
-                subscribersCount : {
-                    $size : "$subscribers"
+            $match: {
+                userName: userName?.toLowerCase()
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers"
                 },
-                channelsSubscribedToCount : { 
-                    $size : "$subscribedTo"
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo"
                 },
-                isSubscribed : {
-                    $cond : {
-                        if : {
-                            $in : [req.user?._id, "$subscribers.subscriber"]
+                isSubscribed: {
+                    $cond: {
+                        if: {
+                            $in: [req.user?._id, "$subscribers.subscriber"]
                         },
-                        then : true,
-                        else : false
+                        then: true,
+                        else: false
                     }
                 }
             }
         },
         {
-            $project : {
-                fullName :1,
-                userName :1,
-                subscribersCount : 1,
-                channelsSubscribedToCount : 1,
-                isSubscribed : 1,
-                avatar :1,
-                coverImage :1,
-                email : 1
+            $project: {
+                fullName: 1,
+                userName: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1
             }
         }
-    ])
+    ]);
+
 
     if(!channel?.length){
         throw new ApiError(404, "Channel not found");
@@ -342,7 +375,8 @@ const getUserChannelProfile=asyncHandler(async(req,res)=>{
 
     console.log(channel);
 
-    return res.status(200).json(new ApiResponse(200,channel[0],"User channel fetched successfully"))
+    return res.status(200)
+    .json(new ApiResponse(200,channel[0],"User channel fetched successfully"))
 
 })
 
@@ -390,7 +424,8 @@ const getWatchHistory=asyncHandler(async(req,res)=>{
         }   
     ])
 
-    return res.status(200).json(new ApiResponse(200,user[0].watchHistory,"Watch history fetched successfully"))
+    return res.status(200)
+    .json(new ApiResponse(200,user[0].watchHistory,"Watch history fetched successfully"))
 
 })
 
@@ -399,7 +434,7 @@ export {
     loginUser,
     logoutUser,
     refreshAccessToken,
-    changeCurrrentPassword,
+    changeCurrentPassword,
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
